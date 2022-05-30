@@ -9,6 +9,23 @@ contract FlightSuretyData {
     address private contractOwner;                                      // Account used to deploy contract
     bool private operational = true;                                    // Blocks all state changes throughout the contract if false
 
+    /**
+    /* RELATED TO AIRLINES
+     */
+    uint256 private airlineCount = 0;
+    uint256 constant AIRLINE_FEE = 10 ether;
+
+    mapping (address => bool) authorizedContracts;
+    mapping (address => Airline) private airlines;
+
+    struct Airline {
+        bytes32 airlineName;
+        bool isCandidate; // registration pending
+        bool isRegistered; // registered but not paid the fee yet
+        bool isParticipant; // has paid the 10 ether
+        address[] voters;
+    }
+
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
     /********************************************************************************************/
@@ -18,13 +35,23 @@ contract FlightSuretyData {
     * @dev Constructor
     *      The deploying account becomes contractOwner
     */
-    constructor
-                                (
-                                ) 
-                                public 
+    constructor(bytes32 name) public 
     {
         contractOwner = msg.sender;
+        //init address list
+        address[] memory t = new address[](1);
+        t[0]= msg.sender;
+
+        airlines[msg.sender] = Airline(name, false, true, true, t);
+        airlineCount++;
     }
+
+    /**
+    * EVENTS
+    */
+    event AirlineRegistered(address);
+    event AirlineParticipant(address);
+    event AirlineCandidate(address);
 
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
@@ -50,6 +77,15 @@ contract FlightSuretyData {
     modifier requireContractOwner()
     {
         require(msg.sender == contractOwner, "Caller is not contract owner");
+        _;
+    }
+
+    /**
+    * @dev Modifier for registered airlines (and contract owner)
+     */
+    modifier requireIsAuthorized()
+    {
+        require(msg.sender == contractOwner || authorizedContracts[msg.sender], "Caller is not authorized");
         _;
     }
 
@@ -89,18 +125,44 @@ contract FlightSuretyData {
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
-
+    
+    /**
+    * @dev Check an airline has been registered
+    *      Can only be called from FlightSuretyApp contract
+    *
+    */   
+    function isAirlineParticipant(address airlineAddress) external view
+    returns(bool success)
+    {
+        return airlines[airlineAddress].isParticipant;
+    }
    /**
     * @dev Add an airline to the registration queue
     *      Can only be called from FlightSuretyApp contract
     *
     */   
     function registerAirline
-                            (   
+                            (
+                                address airlineAddress,
+                                bytes32 airlineName
                             )
-                            external
-                            pure
+                            public
+                            requireIsOperational
+                            requireIsAuthorized
+                            returns (bool success)
     {
+        if (airlineCount < 5)
+        {
+            //init address list
+            address[] memory t = new address[](1);
+            t[0]= msg.sender;
+
+            airlines[airlineAddress] = Airline(airlineName, false, true, true, t);
+            airlineCount++;
+
+            emit AirlineRegistered(airlineAddress);
+            return true;
+        }
     }
 
 

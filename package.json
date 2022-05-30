@@ -44,6 +44,7 @@
     "webpack-node-externals": "1.7.2"
   },
   "dependencies": {
-    "@truffle/hdwallet-provider": "^2.0.8"
+    "@truffle/hdwallet-provider": "^2.0.8",
+    "ethers": "^5.6.8"
   }
 }
