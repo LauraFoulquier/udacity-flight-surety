@@ -1,9 +1,6 @@
-pragma solidity ^0.4.25;
-
-import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
+pragma solidity ^0.8.1;
 
 contract FlightSuretyData {
-    using SafeMath for uint256;
 
     /********************************************************************************************/
     /*                                       DATA VARIABLES                                     */
@@ -174,7 +171,7 @@ contract FlightSuretyData {
     * @dev Fallback function for funding smart contract.
     *
     */
-    function() 
+    fallback() 
                             external 
                             payable 
     {
