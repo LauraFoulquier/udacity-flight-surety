@@ -2,6 +2,10 @@
 
 FlightSurety is a sample application project for Udacity's Blockchain course.
 
+## Student note
+- Commented out `using SafeMath` as SafeMath is generally not needed starting with Solidity 0.8, since the compiler now has built in overflow checking. (https://docs.soliditylang.org/en/latest/080-breaking-changes.html?highlight=safemath#)
+- 
+
 ## Install
 
 This repository contains Smart Contract code in Solidity (using Truffle), tests (also using Truffle), dApp scaffolding (using HTML, CSS and JS) and server app scaffolding.

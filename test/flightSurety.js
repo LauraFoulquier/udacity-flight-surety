@@ -89,6 +89,11 @@ contract('Flight Surety Tests', async (accounts) => {
     assert.equal(result, false, "Airline should not be able to register another airline if it hasn't provided funding");
 
   });
+
+//   it('(contract owner) is initialized as the first participant airline', async () => {
+//       let result = await config.flightSuretyData.isAirlineParticipant.call(msg.sender);
+//       assert.equal(result, true, "The contract owner has not been recorded as first participant airline");
+//   })
  
 
 });

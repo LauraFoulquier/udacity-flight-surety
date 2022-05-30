@@ -1,16 +1,17 @@
-pragma solidity ^0.4.25;
+pragma solidity ^0.8.1;
 
 // It's important to avoid vulnerabilities due to numeric overflow bugs
 // OpenZeppelin's SafeMath library, when used correctly, protects agains such bugs
 // More info: https://www.nccgroup.trust/us/about-us/newsroom-and-events/blog/2018/november/smart-contract-insecurity-bad-arithmetic/
 
-import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
+//import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "./FlightSuretyData.sol";
 
 /************************************************** */
 /* FlightSurety Smart Contract                      */
 /************************************************** */
 contract FlightSuretyApp {
-    using SafeMath for uint256; // Allow SafeMath functions to be called for all uint256 types (similar to "prototype" in Javascript)
+    //using SafeMath for uint256; // Allow SafeMath functions to be called for all uint256 types (similar to "prototype" in Javascript)
 
     /********************************************************************************************/
     /*                                       DATA VARIABLES                                     */
@@ -34,6 +35,7 @@ contract FlightSuretyApp {
     }
     mapping(bytes32 => Flight) private flights;
 
+    FlightSuretyData flightSuretyData;
  
     /********************************************************************************************/
     /*                                       FUNCTION MODIFIERS                                 */
@@ -63,6 +65,15 @@ contract FlightSuretyApp {
         _;
     }
 
+        /**
+    * @dev Modifier that requires the airline to be registered
+    */
+    modifier requireAirlineRegistered()
+    {
+        require(flightSuretyData.isAirlineRegistered(msg.sender), "This airline has not been registered");
+        _;
+    }
+
     /********************************************************************************************/
     /*                                       CONSTRUCTOR                                        */
     /********************************************************************************************/
@@ -73,11 +84,30 @@ contract FlightSuretyApp {
     */
     constructor
                                 (
+                                    address payable dataContract
                                 ) 
                                 public 
     {
         contractOwner = msg.sender;
+        flightSuretyData = FlightSuretyData(dataContract);
     }
+
+    /********************************************************************************************/
+    /*                                              EVENTS                                      */
+    /********************************************************************************************/
+
+    event AirlineRegistered(
+        address addressAirline,
+        bool success,
+        uint256 votes
+    );
+
+    event FlightRegistered(
+        string flight,
+        address addressAirline,
+        uint256 timestamp
+    );
+
 
     /********************************************************************************************/
     /*                                       UTILITY FUNCTIONS                                  */
@@ -85,10 +115,10 @@ contract FlightSuretyApp {
 
     function isOperational() 
                             public 
-                            pure 
+                            view 
                             returns(bool) 
     {
-        return true;  // Modify to call data contract's status
+        return flightSuretyData.isOperational();
     }
 
     /********************************************************************************************/
@@ -145,7 +175,7 @@ contract FlightSuretyApp {
     function fetchFlightStatus
                         (
                             address airline,
-                            string flight,
+                            string memory flight,
                             uint256 timestamp                            
                         )
                         external
@@ -154,10 +184,15 @@ contract FlightSuretyApp {
 
         // Generate a unique key for storing the request
         bytes32 key = keccak256(abi.encodePacked(index, airline, flight, timestamp));
-        oracleResponses[key] = ResponseInfo({
-                                                requester: msg.sender,
-                                                isOpen: true
-                                            });
+        ResponseInfo storage r = oracleResponses[key];
+        r.isOpen = true;
+        r.requester = msg.sender;
+
+        // ** Change based on https://ethereum.stackexchange.com/questions/87451/solidity-error-struct-containing-a-nested-mapping-cannot-be-constructed 
+        // oracleResponses[key] = ResponseInfo({
+        //                                         requester: msg.sender,
+        //                                         isOpen: true
+        //                                     });
 
         emit OracleRequest(index, airline, flight, timestamp);
     } 
@@ -230,7 +265,7 @@ contract FlightSuretyApp {
                             )
                             view
                             external
-                            returns(uint8[3])
+                            returns(uint8[3] memory)
     {
         require(oracles[msg.sender].isRegistered, "Not registered as an oracle");
 
@@ -248,7 +283,7 @@ contract FlightSuretyApp {
                         (
                             uint8 index,
                             address airline,
-                            string flight,
+                            string memory flight,
                             uint256 timestamp,
                             uint8 statusCode
                         )
@@ -278,7 +313,7 @@ contract FlightSuretyApp {
     function getFlightKey
                         (
                             address airline,
-                            string flight,
+                            string memory flight,
                             uint256 timestamp
                         )
                         pure
@@ -294,7 +329,7 @@ contract FlightSuretyApp {
                                 address account         
                             )
                             internal
-                            returns(uint8[3])
+                            returns(uint8[3] memory)
     {
         uint8[3] memory indexes;
         indexes[0] = getRandomIndex(account);
