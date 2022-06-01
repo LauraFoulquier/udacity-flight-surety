@@ -12,18 +12,20 @@ contract FlightSuretyData {
     /**
     /* RELATED TO AIRLINES
      */
-    uint256 private airlineCount = 0;
+    uint8 constant CONSENSUS = 4; //maximum number of registered airline before it goes to voting
+    uint8 constant VOTING_RULE = 50; //% of participant airlines votes
+    uint256 airlineCount = 0;
     uint256 constant AIRLINE_FEE = 10 ether;
 
     mapping (address => bool) authorizedContracts;
     mapping (address => Airline) private airlines;
+    mapping (address => address[]) votes;
 
     struct Airline {
         bytes32 airlineName;
         bool isCandidate; // registration pending
         bool isRegistered; // registered but not paid the fee yet
         bool isParticipant; // has paid the 10 ether
-        address[] voters;
     }
 
     /********************************************************************************************/
@@ -38,11 +40,8 @@ contract FlightSuretyData {
     constructor(bytes32 name) public 
     {
         contractOwner = msg.sender;
-        //init address list
-        address[] memory t = new address[](1);
-        t[0]= msg.sender;
-
-        airlines[msg.sender] = Airline(name, false, true, true, t);
+        airlines[msg.sender] = Airline(name, false, true, true);
+        votes[msg.sender].push(msg.sender);
         airlineCount++;
     }
 
@@ -98,28 +97,29 @@ contract FlightSuretyData {
     *
     * @return A bool that is the current operating status
     */      
-    function isOperational() 
-                            public 
-                            view 
-                            returns(bool) 
+    function isOperational() public view returns(bool) 
     {
         return operational;
     }
-
 
     /**
     * @dev Sets contract operations on/off
     *
     * When operational mode is disabled, all write transactions except for this one will fail
     */    
-    function setOperatingStatus
-                            (
-                                bool mode
-                            ) 
-                            external
-                            requireContractOwner 
+    function setOperatingStatus (bool mode) external requireContractOwner 
     {
         operational = mode;
+    }
+
+    function getAuthorizedContracts(address addr) view external returns (bool result)
+    {
+        return authorizedContracts[addr];
+    } 
+
+    function getAirlineCount() view external returns (uint256 count) 
+    {
+        return airlineCount;
     }
 
     /********************************************************************************************/
@@ -127,15 +127,33 @@ contract FlightSuretyData {
     /********************************************************************************************/
     
     /**
-    * @dev Check an airline has been registered
-    *      Can only be called from FlightSuretyApp contract
+    * @dev Add account to authorized callers : contract Owner, Participant Airline or App contract
+    */
+    function _authorizeCaller(address contractAddress) external requireIsOperational requireContractOwner
+    {
+        authorizedContracts[contractAddress] = true;
+    }
+
+    /**
+    * @dev Check an airline has been registered and paid the fee
     *
     */   
-    function isAirlineParticipant(address airlineAddress) external view
+    function isAirlineParticipant(address airlineAddress) external view requireIsAuthorized
     returns(bool success)
     {
         return airlines[airlineAddress].isParticipant;
     }
+
+    /**
+    * @dev Check an airline has been registered 
+    *
+    */   
+    function isAirlineRegistered(address airlineAddress) external view requireIsAuthorized
+    returns(bool success)
+    {
+        return airlines[airlineAddress].isRegistered;
+    }
+
    /**
     * @dev Add an airline to the registration queue
     *      Can only be called from FlightSuretyApp contract
@@ -143,28 +161,63 @@ contract FlightSuretyData {
     */   
     function registerAirline
                             (
-                                address airlineAddress,
-                                bytes32 airlineName
+                                address newAirlineAddress,
+                                bytes32 newAirlineName
                             )
                             public
                             requireIsOperational
                             requireIsAuthorized
                             returns (bool success)
     {
-        if (airlineCount < 5)
+        if (airlineCount <= CONSENSUS)
         {
-            //init address list
-            address[] memory t = new address[](1);
-            t[0]= msg.sender;
+            registerValidatedAirline(newAirlineAddress, newAirlineName, msg.sender);
+        }
+        else
+        {
+            voteForRegisteringAirline(newAirlineAddress);
+            registerIfEnoughVotes(newAirlineAddress, newAirlineName);
+        }
+        return true;
+    }
 
-            airlines[airlineAddress] = Airline(airlineName, false, true, true, t);
+    function registerValidatedAirline(address newAirlineAddress, bytes32 newAirlineName, address registeringParty) private 
+    {
+            airlines[newAirlineAddress] = Airline(newAirlineName, false, true, false);
+            votes[newAirlineAddress].push(registeringParty);
             airlineCount++;
+            emit AirlineRegistered(newAirlineAddress);
+    }
 
-            emit AirlineRegistered(airlineAddress);
-            return true;
+    function voteForRegisteringAirline(address newAirlineAddress) private 
+    {
+        bool hasVoted = false;
+        for (uint i=0; i< votes[newAirlineAddress].length; i++){
+            if (votes[newAirlineAddress][i] == msg.sender)
+            {
+                hasVoted = true;
+                break;
+            }
+        }
+        if(!hasVoted)
+        {
+            votes[newAirlineAddress].push(msg.sender);
         }
     }
 
+    function registerIfEnoughVotes(address newAirlineAddress, bytes32 newAirlineName) private 
+    {
+        uint256 numberOfVotesRequired = airlineCount*VOTING_RULE/100; //multiply by 50% (50/100)
+        uint256 remainder = airlineCount*VOTING_RULE/100;
+        if (remainder == 1) 
+        {
+            numberOfVotesRequired++;
+        }
+        if (votes[newAirlineAddress].length >= numberOfVotesRequired)
+        {
+            registerValidatedAirline(newAirlineAddress, newAirlineName, msg.sender);
+        }
+    }
 
    /**
     * @dev Buy insurance for a flight

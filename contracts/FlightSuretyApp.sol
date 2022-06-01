@@ -79,10 +79,10 @@ contract FlightSuretyApp {
 
     function isOperational() 
                             public 
-                            pure 
+                            view 
                             returns(bool) 
     {
-        return true;  // Modify to call data contract's status
+        return data.isOperational();
     }
 
     /********************************************************************************************/
@@ -94,13 +94,12 @@ contract FlightSuretyApp {
     * @dev Add an airline to the registration queue
     *
     */   
-    function registerAirline
-                            (   
-                            )
+    function registerAirline (  address newAirlineAddress, string memory newAirlineName)
                             external
-                            pure
                             returns(bool success, uint256 votes)
     {
+        success = data.registerAirline(newAirlineAddress, bytes32(bytes(newAirlineName)));
+        //votes = data.votes[newAirlineAddress];
         return (success, 0);
     }
 

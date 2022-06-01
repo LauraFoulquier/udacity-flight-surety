@@ -2,6 +2,7 @@
 var FlightSuretyApp = artifacts.require("FlightSuretyApp");
 var FlightSuretyData = artifacts.require("FlightSuretyData");
 var BigNumber = require('bignumber.js');
+const ethers = require('ethers');
 
 var Config = async function(accounts) {
     
@@ -21,15 +22,18 @@ var Config = async function(accounts) {
 
 
     let owner = accounts[0];
+    let ownerAirlineName = "BritishAirways";
     let firstAirline = accounts[1];
+    let firstAirlineName = "AirFrance";
 
-    let flightSuretyData = await FlightSuretyData.new("BritishAirways", {from: owner});
-    let flightSuretyApp = await FlightSuretyApp.new(flightSuretyData.address);
+    let flightSuretyData = await FlightSuretyData.new(ethers.utils.formatBytes32String(ownerAirlineName), {from: owner});
+    let flightSuretyApp = await FlightSuretyApp.new(flightSuretyData.address, {from: owner});
 
     
     return {
         owner: owner,
         firstAirline: firstAirline,
+        firstAirlineName: firstAirlineName,
         weiMultiple: (new BigNumber(10)).pow(18),
         testAddresses: testAddresses,
         flightSuretyData: flightSuretyData,
