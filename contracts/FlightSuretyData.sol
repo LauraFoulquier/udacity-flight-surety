@@ -20,6 +20,7 @@ contract FlightSuretyData {
     mapping (address => bool) authorizedContracts;
     mapping (address => Airline) private airlines;
     mapping (address => address[]) votes;
+    mapping (address => uint256) airlineBalances;
 
     struct Airline {
         bytes32 airlineName;
@@ -40,6 +41,7 @@ contract FlightSuretyData {
     constructor(bytes32 name) public 
     {
         contractOwner = msg.sender;
+        authorizedContracts[contractOwner] = true;
         airlines[msg.sender] = Airline(name, false, true, true);
         votes[msg.sender].push(msg.sender);
         airlineCount++;
@@ -217,6 +219,21 @@ contract FlightSuretyData {
         {
             registerValidatedAirline(newAirlineAddress, newAirlineName, msg.sender);
         }
+    }
+
+    function fundAirline(address airlineAddress, uint256 amount) external requireIsOperational 
+    {
+        airlineBalances[airlineAddress] = airlineBalances[airlineAddress] + amount;
+    }
+
+    function confirmAirlineAsParticipant(address airlineAddress) external requireIsOperational 
+    {
+        airlines[airlineAddress].isParticipant = true;
+    }
+
+    function getAirlineBalance(address airlineAddress) view external requireIsOperational requireIsAuthorized 
+    returns (uint256 balance) {
+        return airlineBalances[airlineAddress];
     }
 
    /**

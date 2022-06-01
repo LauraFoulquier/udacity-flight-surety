@@ -42,18 +42,36 @@ contract('Flight Surety Data Tests', async (accounts) => {
   })
 
   describe('Register Airline', () => {
-    it('before adding a new airline, the contract shoudl have initilisaed the first one',  async() => {
+    it('before adding a new airline, the contract shoudl have initialized the first one',  async() => {
       let nb = await config.flightSuretyData.getAirlineCount.call();
       assert.equal(nb, 1, "Problem with number of airline counted");
     })
-    
+
     it('The first airline is registered by the App', async() => {
+      let address = config.firstAirline;
+      let name = ethers.utils.formatBytes32String(config.firstAirlineName);
+
       let checkAccess = await config.flightSuretyData.getAuthorizedContracts.call(config.flightSuretyApp.address);
       assert.equal(checkAccess, true, "App Account has not been authorized");
 
-      await config.flightSuretyApp.registerAirline.call(config.firstAirline, config.firstAirlineName, {from: config.flightSuretyApp.address});
-      let check = await config.flightSuretyData.isAirlineRegistered.call(config.firstAirline);
+      await config.flightSuretyData.registerAirline.call(address,name, {from: config.flightSuretyApp.address});
+      let check = await config.flightSuretyData.isAirlineRegistered.call(address, {from: config.owner});
       assert.equal(check, true, "The first airline has not been registered" )
+    })
+  })
+
+  describe('FundAirline, become participant, getAirlineBalance', () => {
+    let tenEther = web3.utils.toWei('10', 'ether');
+
+    it('Should return 0 if the airline does not exist',  async() => {
+      let amount = await config.flightSuretyData.getAirlineBalance.call(config.testAddresses[1], {from: config.flightSuretyApp.address});
+      assert.equal(amount, 0, "Unfunded airline balance should be 0")
+    })
+    it('Should return the right balance when airline is funded', async() => {
+      await config.flightSuretyData.registerAirline.call(config.firstAirline, ethers.utils.formatBytes32String(config.firstAirlineName), {from: config.flightSuretyApp.address});
+      await config.flightSuretyData.fundAirline.call(config.firstAirline, tenEther, {from: config.flightSuretyApp.address})
+      let balance = await config.flightSuretyData.getAirlineBalance.call(config.firstAirline);
+      assert.equal(balance, tenEther, "the airline account has not been funded")
     })
   })
 
